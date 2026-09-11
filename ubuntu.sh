@@ -7,14 +7,23 @@
 export DEBIAN_FRONTEND=noninteractive
 export NEEDRESTART_MODE=a
 
-# Cleanup on exit
-trap 'rm -rf /tmp/fastfetch.deb /tmp/steam.deb /tmp/sober_cfg.py /tmp/pin_taskbar.py 2>/dev/null' EXIT
+# Prompt for sudo upfront to authorize the terminal session
+echo "=== Terminal Authorization ==="
+echo "Please enter your password to authorize sudo access:"
+sudo -v || { echo "Sudo authorization failed. Exiting."; exit 1; }
 
+# Keep-alive loop: updates sudo timestamp every 60s until the script exits
+while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
+SUDO_KEEPALIVE_PID=$!
+
+# Global cleanup on exit or failure
+trap 'kill "$SUDO_KEEPALIVE_PID" 2>/dev/null; rm -rf /tmp/fastfetch.deb /tmp/steam.deb /tmp/sober_cfg.py /tmp/pin_taskbar.py 2>/dev/null' EXIT
 
 # ===========================
 # INITIAL PROMPT
 # ===========================
 
+clear
 echo "=== ubuntu auto ricer by dino13513 ==="
 echo ""
 read -t 10 -p "Would you like to pre-install Steam and Sober? [y/N] (auto selecting N in 10s): " GAMING_INPUT
@@ -28,6 +37,9 @@ fi
 
 TOTAL_STEPS=7
 CURRENT_STEP=0
+
+clear
+echo "=== ubuntu auto ricer by dino13513 ==="
 
 # =======================
 # SPINNER HELPER FUNC
