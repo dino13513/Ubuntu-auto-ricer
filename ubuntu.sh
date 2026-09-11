@@ -26,7 +26,8 @@ trap 'kill "$SUDO_KEEPALIVE_PID" 2>/dev/null; rm -rf /tmp/fastfetch.deb /tmp/ste
 clear
 echo "=== ubuntu auto ricer by dino13513 ==="
 echo ""
-read -t 10 -p "Would you like to pre-install Steam and Sober? [y/N] (auto selecting N in 10s): " GAMING_INPUT
+read -t 10 -p "Would you like to pre-install Steam and Sober? [y/N] (auto selecting N in 10s): " GAMING_INPUT </dev/tty
+
 GAMING_INPUT=${GAMING_INPUT:-N}
 
 if [[ "$GAMING_INPUT" =~ ^[Yy]$ ]]; then
