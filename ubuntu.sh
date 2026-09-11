@@ -123,7 +123,18 @@ if [ "$INSTALL_GAMING" = true ]; then
 
         mkdir -p "$HOME/.var/app/org.vinegarhq.Sober/config/sober"
         cat << "EOF" > /tmp/sober_cfg.py
-import json, os
+import json, os, subprocess
+
+# Test if Vulkan runs safely on this CPU/GPU combination
+use_opengl = True
+try:
+    # Run vulkaninfo; if it SIGILLs or fails, returncode will not be 0
+    res = subprocess.run(["vulkaninfo", "--summary"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if res.returncode == 0:
+        use_opengl = False
+except Exception:
+    use_opengl = True
+
 config_path = os.path.expanduser("~/.var/app/org.vinegarhq.Sober/config/sober/config.json")
 data = {
     "allow_gamepad_permission": True,
@@ -141,8 +152,9 @@ data = {
     "touch_mode": "off",
     "use_console_experience": False,
     "use_libsecret": False,
-    "use_opengl": True
+    "use_opengl": use_opengl
 }
+
 with open(config_path, "w") as f:
     json.dump(data, f, indent=2)
 EOF
