@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
 # ===========================
-# ENCIOREMENT & TRAP SETUP
+# ENVIRONMENT & TRAP SETUP
 # ===========================
 
 export DEBIAN_FRONTEND=noninteractive
 export NEEDRESTART_MODE=a
 
-# Cleanup bc why not
+# Cleanup on exit
 trap 'rm -rf /tmp/fastfetch.deb /tmp/steam.deb /tmp/sober_cfg.py /tmp/pin_taskbar.py 2>/dev/null' EXIT
 
 
@@ -17,16 +17,15 @@ trap 'rm -rf /tmp/fastfetch.deb /tmp/steam.deb /tmp/sober_cfg.py /tmp/pin_taskba
 
 echo "=== ubuntu auto ricer by dino13513 ==="
 echo ""
-read -t 10 -p "Would you like to pre-install steam and Sober? [y/N] (auto selecting n in 10s): " GAMING_INPUT
+read -t 10 -p "Would you like to pre-install Steam and Sober? [y/N] (auto selecting N in 10s): " GAMING_INPUT
 GAMING_INPUT=${GAMING_INPUT:-N}
 
-if  [[ "$GAMING_INPUT" ~= ^[Yy]$ ]]; then
+if [[ "$GAMING_INPUT" =~ ^[Yy]$ ]]; then
     INSTALL_GAMING=true
 else
     INSTALL_GAMING=false
 fi
 
-#idk
 TOTAL_STEPS=7
 CURRENT_STEP=0
 
@@ -39,13 +38,14 @@ run_step() {
     local msg="$1"
     local cmd="$2"
 
-    eval "$cmd" >/dev/null 2>$1 &
+    eval "$cmd" >/dev/null 2>&1 &
     local pid=$!
+    local spin=('/' '-' '\' '|')
     local i=0
 
     while kill -0 "$pid" 2>/dev/null; do
-        i=$(( (i + 1) % 4))
-        printf "/r/033[k[%d/%d] %s [%s]"
+        i=$(( (i + 1) % 4 ))
+        printf "\r\033[K[%d/%d] %s [%s]" "$CURRENT_STEP" "$TOTAL_STEPS" "$msg" "${spin[$i]}"
         sleep 0.1
     done
 
@@ -53,9 +53,9 @@ run_step() {
     local status=$?
 
     if [ $status -eq 0 ]; then
-        printf "/r/033[k[%d/%d] %s [✓]\n" "$CURRENT_STEP" "$TOTAL_STEPS" "msg"
+        printf "\r\033[K[%d/%d] %s [✓]\n" "$CURRENT_STEP" "$TOTAL_STEPS" "$msg"
     else
-        printf "/r/033[k[%d/%d] %s [x]\n" "$CURRENT_STEP" "$TOTAL_STEPS" "msg"
+        printf "\r\033[K[%d/%d] %s [✗]\n" "$CURRENT_STEP" "$TOTAL_STEPS" "$msg"
     fi
     return $status
 }
@@ -64,95 +64,94 @@ run_step() {
 # EXECUTION STEPS
 # =================
 
-#step 1
+# step 1
 run_step "Pre-seeding SDDM selection & 32-bit architecture" '
     echo "sddm shared/default-x-display-manager select sddm" | sudo debconf-set-selections
     sudo dpkg --add-architecture i386
     sudo apt-get update -qq
 '
 
-#step 2
-run_step "Installing KDE Plasma" '
+# step 2
+run_step "Installing KDE Plasma & dependencies" '
     sudo apt-get install -y -qq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" \
     sddm kde-plasma-desktop kwin-addons mesa-utils git build-essential flatpak python3 nodejs npm curl wget
 '
 
-#step 3
-
-run_step "Configuring KDE Plasma" '
+# step 3
+run_step "Configuring KDE Plasma & 3D compositing" '
     KWRITE=$(command -v kwriteconfig6 || command -v kwriteconfig5 || echo "")
     if [ -n "$KWRITE" ]; then
-        $KWRITE --file kwinrc --group Compositioning --key OpenGLIsUnsafe false
-        $KWRITE --file kwinrc --group Compositioning --key Enabled true
+        $KWRITE --file kwinrc --group Compositing --key OpenGLIsUnsafe false
+        $KWRITE --file kwinrc --group Compositing --key Enabled true
         $KWRITE --file kwinrc --group Plugins --key wobblywindowsEnabled true
-        plasma-apply-lookandfeel -a org.breezedark.desktop 2>/dev/null || true
+        plasma-apply-lookandfeel -a org.kde.breezedark.desktop 2>/dev/null || true
     fi
 '
 
-#step 4
-run_step "installling and configuring fastfetch" '
+# step 4
+run_step "Installing and configuring fastfetch" '
     if ! sudo apt-get install -y -qq fastfetch 2>/dev/null; then
         wget -q https://github.com/fastfetch-cli/fastfetch/releases/latest/download/fastfetch-linux-amd64.deb -O /tmp/fastfetch.deb
         sudo dpkg -i /tmp/fastfetch.deb || sudo apt-get install -f -y -qq
     fi
-    grep -qF "alias fetch=\"fastfetch"" "%HOME/.bashrc" || echo "alias fetch=\"fastfetch"" >> "$HOME/.bashrc"
-    grep -qF "alias neofetch=\"fastfetch"" "%HOME/.bashrc" || echo "alias neofetch=\"fastfetch"" >> "$HOME/.bashrc"
+    grep -qF "alias fetch=\"fastfetch\"" "$HOME/.bashrc" || echo "alias fetch=\"fastfetch\"" >> "$HOME/.bashrc"
+    grep -qF "alias neofetch=\"fastfetch\"" "$HOME/.bashrc" || echo "alias neofetch=\"fastfetch\"" >> "$HOME/.bashrc"
     grep -qF "fastfetch" "$HOME/.bashrc" || echo "fastfetch" >> "$HOME/.bashrc"
 '
 
-#step 5
-if [ $INSTALL_GAMING = true ]; then
-    run_step "Installing Steam and Sober(Roblox)" '
+# step 5
+if [ "$INSTALL_GAMING" = true ]; then
+    run_step "Installing Steam and Sober (Roblox)" '
         wget -q https://cdn.cloudflare.steamstatic.com/client/installer/steam.deb -O /tmp/steam.deb
         sudo dpkg -i /tmp/steam.deb || sudo apt-get install -f -y -qq
 
         sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
         flatpak install -y flathub org.vinegarhq.Sober
-        flatpak overridee --user --filesystem=xdg=run/discord-ipc-0 org.vinegarhq.Sober 2>/dev/null || true
+        flatpak override --user --filesystem=xdg-run/discord-ipc-0 org.vinegarhq.Sober 2>/dev/null || true
 
         mkdir -p "$HOME/.var/app/org.vinegarhq.Sober/config/sober"
         cat << "EOF" > /tmp/sober_cfg.py
 import json, os
-config_path = os.path.expanduser(~/.var/app/org.vinegarhq.Sober/config/sober/config.json)
+config_path = os.path.expanduser("~/.var/app/org.vinegarhq.Sober/config/sober/config.json")
 data = {
-    "allow_gamepad_permission": true,
-    "close_on_leave": false,
-    "discord_rpc_enabled": true,
-    "discord_rpc_show_join_button": false,
-    "enable_gamemode": true,
-    "enable_hidpi": false,
-    "enable_mobile_home_screen": false,
+    "allow_gamepad_permission": True,
+    "close_on_leave": False,
+    "discord_rpc_enabled": True,
+    "discord_rpc_show_join_button": False,
+    "enable_gamemode": True,
+    "enable_hidpi": False,
+    "enable_mobile_home_screen": False,
     "fflags": {
-        "FFlagExample": true
+        "FFlagExample": True
     },
     "graphics_optimization_mode": "balanced",
-    "server_location_indicator_enabled": false,
+    "server_location_indicator_enabled": False,
     "touch_mode": "off",
-    "use_console_experience": false,
-    "use_libsecret": false,
-    "use_opengl": false
+    "use_console_experience": False,
+    "use_libsecret": False,
+    "use_opengl": True
 }
 with open(config_path, "w") as f:
     json.dump(data, f, indent=2)
 EOF
-    python3 /tmp/sober_cfg.py
+        python3 /tmp/sober_cfg.py
 '
 else
-    run_step "Installing Steam and Sober(Roblox)" '
-        echo "Skipped Gaming software installation"
+    run_step "Installing Steam and Sober (Roblox)" '
+        echo "Skipped gaming software installation"
     '
 fi
 
-#step 6
-run_step "Setting up SDDM theme, desktop icons and taskbar pins" '
+# step 6
+run_step "Setting up SDDM theme, desktop icons, and taskbar pins" '
     sudo mkdir -p /etc/sddm.conf.d
     echo -e "[Theme]\nCurrent=breeze" | sudo tee /etc/sddm.conf.d/theme.conf >/dev/null
 
     mkdir -p "$HOME/Desktop"
     if [ "$INSTALL_GAMING" = true ]; then
-        cp /usr/share/applications/steam.desktop "$HOME/Desktop/" 2>dev/null || true
-        cp /var/lib/flatpak/exports/share/applications/org.vinegarhq.Sober.desktop "$HOME/Desktop" 2>dev/null || true
-        chmod +x "$HOME/Desktop/"*.desktop 2>dev/null || true
+        cp /usr/share/applications/steam.desktop "$HOME/Desktop/" 2>/dev/null || true
+        cp /var/lib/flatpak/exports/share/applications/org.vinegarhq.Sober.desktop "$HOME/Desktop/" 2>/dev/null || true
+        chmod +x "$HOME/Desktop/"*.desktop 2>/dev/null || true
     fi
 
     cat << "EOF" > /tmp/pin_taskbar.py
@@ -166,11 +165,11 @@ if os.path.exists(config_path):
     new_launchers = ["applications:org.kde.konsole.desktop"]
 
     for section in config.sections():
-        if config.has_option(section, "plugin") and config.get(section "plugin") in ["org.kde.plasma.icontasks", "org.kde.plasma.taskmanager"]:
+        if config.has_option(section, "plugin") and config.get(section, "plugin") in ["org.kde.plasma.icontasks", "org.kde.plasma.taskmanager"]:
             applet_id = section.split("[")[-1].replace("]", "")
-            gen_section = f"Applets"][{applet_id}][Configuration][General"
+            gen_section = f"Applets][{applet_id}][Configuration][General"
             if not config.has_section(gen_section):
-                config.add_section
+                config.add_section(gen_section)
             config.set(gen_section, "launchers", ",".join(new_launchers))
 
     with open(config_path, "w") as f:
@@ -187,4 +186,4 @@ run_step "Reloading Plasma Shell and KWin manager" '
     kwin_wayland --replace >/dev/null 2>&1 &
 '
 
-echo -e "\nRice Complete it is safe to reboot now"
+echo -e "\nRice Complete! It is safe to reboot now."
